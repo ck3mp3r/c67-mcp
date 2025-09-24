@@ -1,0 +1,174 @@
+name: Multi-Arch Nix Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  checks: read
+  deployments: read
+  issues: read
+  pull-requests: read
+  id-token: write
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      semver: ${{ steps.semver.outputs.semver }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Extract version from Cargo.toml
+        id: extract
+        run: |
+          version=$(awk -F' *= *' '/^version *=/ {gsub(/"/, "", $2); print $2; exit}' Cargo.toml)
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Calculate semantic version
+        id: semver
+        uses: ck3mp3r/actions/semver-version@fix/semver-action
+        with:
+          current-version: ${{ steps.extract.outputs.version }}
+          detect-branch-builds: "false"
+
+  build:
+    needs: get-version
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            nix_system: x86_64-linux
+          - os: macos-14
+            nix_system: aarch64-darwin
+          - os: macos-13
+            nix_system: x86_64-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v10
+
+      - name: Build for ${{ matrix.nix_system }}
+        run: nix build .#${{ matrix.nix_system }}
+
+      - name: Copy build outputs for uniqueness
+        run: |
+          cp result/c7-mcp.tgz ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.tgz
+          cp result/c7-mcp.sha256 ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.sha256
+          cp result/c7-mcp-nix.sha256 ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}-nix.sha256
+
+      - name: Upload build outputs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: c7-mcp-assets-${{ matrix.nix_system }}
+          path: |
+            ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.tgz
+            ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.sha256
+            ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}-nix.sha256
+
+  release:
+    needs: [get-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up git user for all steps
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create and push release branch
+        run: |
+          git checkout -b release/${{ needs.get-version.outputs.semver }}
+          git push origin release/${{ needs.get-version.outputs.semver }}
+
+      # Already on release branch, no need to checkout again
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Generate per-arch data files
+        run: |
+          VERSION=${{ needs.get-version.outputs.semver }}
+          mkdir -p data
+          for file in ./artifacts/**/*.tgz; do
+            FILENAME=$(basename "$file")
+            PLATFORM=$(echo "$FILENAME" | sed -E 's/c7-mcp-[0-9.]+-(.+)\.tgz/\1/')
+
+            SHA256_FILE="${file%.tgz}-nix.sha256"
+            SHA=$(cat "$SHA256_FILE")
+
+            URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$FILENAME"
+
+            cat > data/${PLATFORM}.json <<EOF
+          {
+            "url": "$URL",
+            "hash": "$SHA"
+          }
+          EOF
+          done
+
+      - name: Update Cargo.toml version if needed
+        run: |
+          VERSION=${{ needs.get-version.outputs.semver }}
+          CURRENT=$(awk -F' *= *' '/^version *=/ {gsub(/"/, "", $2); print $2; exit}' Cargo.toml)
+          if [ "$CURRENT" != "$VERSION" ]; then
+            sed -i.bak -E "s/^version *= *\"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
+            rm Cargo.toml.bak
+            echo "Updated Cargo.toml version to $VERSION"
+          else
+            echo "Cargo.toml version already $VERSION"
+          fi
+
+      - name: Commit data and Cargo.toml to release branch
+        run: |
+          git add data Cargo.toml
+          git commit -m "Release ${{ needs.get-version.outputs.semver }}: update per-arch data and Cargo.toml" || echo "No changes to commit"
+          git push origin HEAD
+
+      - name: Create GitHub Release and Upload Artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.get-version.outputs.semver }}
+          name: "Release v${{ needs.get-version.outputs.semver }}"
+          draft: false
+          prerelease: false
+          update_existing: true
+          files: ./artifacts/**/*.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout main for merge
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge release branch to main
+        run: |
+          git fetch origin release/${{ needs.get-version.outputs.semver }}
+          git merge --squash origin/release/${{ needs.get-version.outputs.semver }}
+          git commit -m "Update per-arch data and Cargo.toml for release ${{ needs.get-version.outputs.semver }}"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete release branch
+        run: |
+          git push origin --delete release/${{ needs.get-version.outputs.semver }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
