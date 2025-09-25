@@ -163,11 +163,6 @@ impl Context7Tool {
         }
     }
 
-    pub fn new_with_client(client: Context7Client) -> Self {
-        Self {
-            client: Arc::new(client),
-        }
-    }
 }
 
 pub fn format_search_results(response: &SearchResponse) -> String {
