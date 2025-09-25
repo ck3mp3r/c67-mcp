@@ -28,7 +28,7 @@ async fn test_context7_client_search_success() {
 
     let client = Context7Client::new_with_base_url(None, mock_server.uri());
     let result = client.search_libraries("nix").await;
-    
+
     assert!(result.is_ok());
     let response = result.unwrap();
     assert_eq!(response.results.len(), 1);
@@ -54,9 +54,10 @@ async fn test_context7_client_search_with_api_key() {
         .mount(&mock_server)
         .await;
 
-    let client = Context7Client::new_with_base_url(Some("test-api-key".to_string()), mock_server.uri());
+    let client =
+        Context7Client::new_with_base_url(Some("test-api-key".to_string()), mock_server.uri());
     let result = client.search_libraries("react").await;
-    
+
     assert!(result.is_ok());
 }
 
@@ -72,7 +73,7 @@ async fn test_context7_client_search_rate_limited() {
 
     let client = Context7Client::new_with_base_url(None, mock_server.uri());
     let result = client.search_libraries("test").await;
-    
+
     assert!(result.is_ok());
     let response = result.unwrap();
     assert!(response.results.is_empty());
@@ -95,8 +96,10 @@ async fn test_context7_client_fetch_docs_success() {
         .await;
 
     let client = Context7Client::new_with_base_url(None, mock_server.uri());
-    let result = client.fetch_library_documentation("/nixos/nix", Some(5000), None).await;
-    
+    let result = client
+        .fetch_library_documentation("/nixos/nix", Some(5000), None)
+        .await;
+
     assert!(result.is_ok());
     let docs = result.unwrap();
     assert!(docs.is_some());
@@ -114,15 +117,17 @@ async fn test_context7_client_fetch_docs_with_topic() {
         .and(query_param("tokens", "3000"))
         .and(query_param("type", "txt"))
         .and(query_param("topic", "installation"))
-        .respond_with(ResponseTemplate::new(200).set_body_string(
-            "Installation documentation content"
-        ))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_string("Installation documentation content"),
+        )
         .mount(&mock_server)
         .await;
 
     let client = Context7Client::new_with_base_url(None, mock_server.uri());
-    let result = client.fetch_library_documentation("/nixos/nix", Some(3000), Some("installation")).await;
-    
+    let result = client
+        .fetch_library_documentation("/nixos/nix", Some(3000), Some("installation"))
+        .await;
+
     assert!(result.is_ok());
     let docs = result.unwrap();
     assert!(docs.is_some());
@@ -140,8 +145,10 @@ async fn test_context7_client_fetch_docs_not_found() {
         .await;
 
     let client = Context7Client::new_with_base_url(None, mock_server.uri());
-    let result = client.fetch_library_documentation("/nonexistent/library", None, None).await;
-    
+    let result = client
+        .fetch_library_documentation("/nonexistent/library", None, None)
+        .await;
+
     assert!(result.is_ok());
     let docs = result.unwrap();
     assert!(docs.is_some());
@@ -159,8 +166,10 @@ async fn test_context7_client_fetch_docs_empty_response() {
         .await;
 
     let client = Context7Client::new_with_base_url(None, mock_server.uri());
-    let result = client.fetch_library_documentation("/empty/library", None, None).await;
-    
+    let result = client
+        .fetch_library_documentation("/empty/library", None, None)
+        .await;
+
     assert!(result.is_ok());
     let docs = result.unwrap();
     assert!(docs.is_none());
@@ -172,14 +181,16 @@ async fn test_library_id_leading_slash_handling() {
 
     // Should strip leading slash from library ID
     Mock::given(method("GET"))
-        .and(path("/v1/nixos/nix"))  // No leading slash in the path
+        .and(path("/v1/nixos/nix")) // No leading slash in the path
         .respond_with(ResponseTemplate::new(200).set_body_string("content"))
         .mount(&mock_server)
         .await;
 
     let client = Context7Client::new_with_base_url(None, mock_server.uri());
-    let result = client.fetch_library_documentation("/nixos/nix", None, None).await;
-    
+    let result = client
+        .fetch_library_documentation("/nixos/nix", None, None)
+        .await;
+
     assert!(result.is_ok());
     assert!(result.unwrap().is_some());
 }
@@ -191,42 +202,55 @@ async fn test_token_limits_enforcement() {
     Mock::given(method("GET"))
         .and(path("/v1/test/lib"))
         .respond_with(|req: &wiremock::Request| {
-            let tokens = req.url.query_pairs()
+            let tokens = req
+                .url
+                .query_pairs()
                 .find(|(key, _)| key == "tokens")
                 .map(|(_, value)| value.parse::<u32>().unwrap_or(0))
                 .unwrap_or(0);
-            
+
             // Should enforce minimum of 1000 tokens
-            assert!(tokens >= 1000, "Tokens should be at least 1000, got: {}", tokens);
-            
+            assert!(
+                tokens >= 1000,
+                "Tokens should be at least 1000, got: {}",
+                tokens
+            );
+
             ResponseTemplate::new(200).set_body_string("content")
         })
         .mount(&mock_server)
         .await;
 
     let client = Context7Client::new_with_base_url(None, mock_server.uri());
-    
+
     // Test with very low token count - should be increased to minimum
-    let result = client.fetch_library_documentation("/test/lib", Some(100), None).await;
+    let result = client
+        .fetch_library_documentation("/test/lib", Some(100), None)
+        .await;
     assert!(result.is_ok());
-    
+
     // Test with no token count - should use default
-    let result = client.fetch_library_documentation("/test/lib", None, None).await;
+    let result = client
+        .fetch_library_documentation("/test/lib", None, None)
+        .await;
     assert!(result.is_ok());
 }
 
 #[tokio::test]
 async fn test_search_response_formatting() {
     use c7_mcp::handler::format_search_results;
-    
+
     // Test empty results
     let empty_response = SearchResponse {
         results: vec![],
         error: None,
     };
     let formatted = format_search_results(&empty_response);
-    assert_eq!(formatted, "No documentation libraries found matching your query.");
-    
+    assert_eq!(
+        formatted,
+        "No documentation libraries found matching your query."
+    );
+
     // Test with results
     let response = SearchResponse {
         results: vec![
@@ -249,22 +273,22 @@ async fn test_search_response_formatting() {
         ],
         error: None,
     };
-    
+
     let formatted = format_search_results(&response);
-    
+
     // Check first library
     assert!(formatted.contains("Test Library 1"));
     assert!(formatted.contains("/test/lib1"));
     assert!(formatted.contains("Code Snippets: 100"));
     assert!(formatted.contains("Trust Score: 8"));
     assert!(formatted.contains("Versions: 1.0.0, 2.0.0"));
-    
-    // Check second library  
+
+    // Check second library
     assert!(formatted.contains("Test Library 2"));
     assert!(formatted.contains("/test/lib2"));
     assert!(!formatted.contains("Code Snippets: -1")); // Should be filtered out
-    assert!(!formatted.contains("Trust Score: -1"));   // Should be filtered out
-    
+    assert!(!formatted.contains("Trust Score: -1")); // Should be filtered out
+
     // Check separator
     assert!(formatted.contains("----------"));
 }

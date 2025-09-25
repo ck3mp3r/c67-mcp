@@ -1,11 +1,11 @@
 use anyhow::Result;
 use reqwest::Client;
+use rmcp::ErrorData as McpError;
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::*;
-use rmcp::service::{serve_server, RequestContext, RoleServer};
-use rmcp::transport::io::stdio;
+use rmcp::service::{RequestContext, RoleServer, serve_server};
 use rmcp::transport::async_rw::AsyncRwTransport;
-use rmcp::{ErrorData as McpError};
+use rmcp::transport::io::stdio;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::env;
@@ -53,9 +53,10 @@ impl Context7Client {
             .or_else(|_| env::var("https_proxy"))
             .or_else(|_| env::var("HTTP_PROXY"))
             .or_else(|_| env::var("http_proxy"))
-            && let Ok(proxy) = reqwest::Proxy::all(proxy_url) {
-                client_builder = client_builder.proxy(proxy);
-            }
+            && let Ok(proxy) = reqwest::Proxy::all(proxy_url)
+        {
+            client_builder = client_builder.proxy(proxy);
+        }
 
         Self {
             client: client_builder.build().unwrap_or_else(|_| Client::new()),
@@ -162,7 +163,6 @@ impl Context7Tool {
             client: Arc::new(Context7Client::new(api_key)),
         }
     }
-
 }
 
 pub fn format_search_results(response: &SearchResponse) -> String {
@@ -181,19 +181,22 @@ pub fn format_search_results(response: &SearchResponse) -> String {
             ];
 
             if let Some(snippets) = result.total_snippets
-                && snippets != -1 {
-                    parts.push(format!("- Code Snippets: {}", snippets));
-                }
+                && snippets != -1
+            {
+                parts.push(format!("- Code Snippets: {}", snippets));
+            }
 
             if let Some(trust_score) = result.trust_score
-                && trust_score != -1 {
-                    parts.push(format!("- Trust Score: {}", trust_score));
-                }
+                && trust_score != -1
+            {
+                parts.push(format!("- Trust Score: {}", trust_score));
+            }
 
             if let Some(versions) = &result.versions
-                && !versions.is_empty() {
-                    parts.push(format!("- Versions: {}", versions.join(", ")));
-                }
+                && !versions.is_empty()
+            {
+                parts.push(format!("- Versions: {}", versions.join(", ")));
+            }
 
             parts.join("\n")
         })
@@ -234,10 +237,19 @@ impl ServerHandler for Context7Tool {
         let mut resolve_props = Map::new();
         let mut library_name_prop = Map::new();
         library_name_prop.insert("type".to_string(), Value::String("string".to_string()));
-        library_name_prop.insert("description".to_string(), Value::String("Library name to search for and retrieve a Context7-compatible library ID.".to_string()));
+        library_name_prop.insert(
+            "description".to_string(),
+            Value::String(
+                "Library name to search for and retrieve a Context7-compatible library ID."
+                    .to_string(),
+            ),
+        );
         resolve_props.insert("libraryName".to_string(), Value::Object(library_name_prop));
         resolve_schema.insert("properties".to_string(), Value::Object(resolve_props));
-        resolve_schema.insert("required".to_string(), Value::Array(vec![Value::String("libraryName".to_string())]));
+        resolve_schema.insert(
+            "required".to_string(),
+            Value::Array(vec![Value::String("libraryName".to_string())]),
+        );
 
         tools.push(Tool {
             name: "resolve-library-id".into(),
@@ -252,24 +264,37 @@ impl ServerHandler for Context7Tool {
         let mut docs_schema = Map::new();
         docs_schema.insert("type".to_string(), Value::String("object".to_string()));
         let mut docs_props = Map::new();
-        
+
         let mut library_id_prop = Map::new();
         library_id_prop.insert("type".to_string(), Value::String("string".to_string()));
         library_id_prop.insert("description".to_string(), Value::String("Exact Context7-compatible library ID (e.g., '/mongodb/docs', '/vercel/next.js', '/supabase/supabase', '/vercel/next.js/v14.3.0-canary.87') retrieved from 'resolve-library-id' or directly from user query in the format '/org/project' or '/org/project/version'.".to_string()));
-        docs_props.insert("context7CompatibleLibraryID".to_string(), Value::Object(library_id_prop));
-        
+        docs_props.insert(
+            "context7CompatibleLibraryID".to_string(),
+            Value::Object(library_id_prop),
+        );
+
         let mut tokens_prop = Map::new();
         tokens_prop.insert("type".to_string(), Value::String("number".to_string()));
         tokens_prop.insert("description".to_string(), Value::String("Maximum number of tokens of documentation to retrieve (default: 5000). Higher values provide more context but consume more tokens.".to_string()));
         docs_props.insert("tokens".to_string(), Value::Object(tokens_prop));
-        
+
         let mut topic_prop = Map::new();
         topic_prop.insert("type".to_string(), Value::String("string".to_string()));
-        topic_prop.insert("description".to_string(), Value::String("Topic to focus documentation on (e.g., 'hooks', 'routing').".to_string()));
+        topic_prop.insert(
+            "description".to_string(),
+            Value::String(
+                "Topic to focus documentation on (e.g., 'hooks', 'routing').".to_string(),
+            ),
+        );
         docs_props.insert("topic".to_string(), Value::Object(topic_prop));
-        
+
         docs_schema.insert("properties".to_string(), Value::Object(docs_props));
-        docs_schema.insert("required".to_string(), Value::Array(vec![Value::String("context7CompatibleLibraryID".to_string())]));
+        docs_schema.insert(
+            "required".to_string(),
+            Value::Array(vec![Value::String(
+                "context7CompatibleLibraryID".to_string(),
+            )]),
+        );
 
         tools.push(Tool {
             name: "get-library-docs".into(),
@@ -281,7 +306,7 @@ impl ServerHandler for Context7Tool {
             title: None,
         });
 
-        Ok(ListToolsResult { 
+        Ok(ListToolsResult {
             tools,
             next_cursor: None,
         })
@@ -299,7 +324,9 @@ impl ServerHandler for Context7Tool {
                     .as_ref()
                     .and_then(|args| args.get("libraryName"))
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError::invalid_params("Missing libraryName parameter", None))?;
+                    .ok_or_else(|| {
+                        McpError::invalid_params("Missing libraryName parameter", None)
+                    })?;
 
                 debug!("Searching for library: {}", library_name);
 
@@ -309,13 +336,19 @@ impl ServerHandler for Context7Tool {
                             Ok(CallToolResult::success(vec![Content::text(error)]))
                         } else {
                             let results_text = format_search_results(&response);
-                            let text = format!("Available Libraries (top matches):\n\nEach result includes:\n- Library ID: Context7-compatible identifier (format: /org/project)\n- Name: Library or package name\n- Description: Short summary\n- Code Snippets: Number of available code examples\n- Trust Score: Authority indicator\n- Versions: List of versions if available. Use one of those versions if and only if the user explicitly provides a version in their query.\n\nFor best results, select libraries based on name match, trust score, snippet coverage, and relevance to your use case.\n\n----------\n\n{}", results_text);
+                            let text = format!(
+                                "Available Libraries (top matches):\n\nEach result includes:\n- Library ID: Context7-compatible identifier (format: /org/project)\n- Name: Library or package name\n- Description: Short summary\n- Code Snippets: Number of available code examples\n- Trust Score: Authority indicator\n- Versions: List of versions if available. Use one of those versions if and only if the user explicitly provides a version in their query.\n\nFor best results, select libraries based on name match, trust score, snippet coverage, and relevance to your use case.\n\n----------\n\n{}",
+                                results_text
+                            );
                             Ok(CallToolResult::success(vec![Content::text(text)]))
                         }
                     }
                     Err(e) => {
                         error!("Failed to search libraries: {}", e);
-                        let text = format!("Failed to retrieve library documentation data from Context7: {}", e);
+                        let text = format!(
+                            "Failed to retrieve library documentation data from Context7: {}",
+                            e
+                        );
                         Ok(CallToolResult::success(vec![Content::text(text)]))
                     }
                 }
@@ -326,7 +359,12 @@ impl ServerHandler for Context7Tool {
                     .as_ref()
                     .and_then(|args| args.get("context7CompatibleLibraryID"))
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError::invalid_params("Missing context7CompatibleLibraryID parameter", None))?;
+                    .ok_or_else(|| {
+                        McpError::invalid_params(
+                            "Missing context7CompatibleLibraryID parameter",
+                            None,
+                        )
+                    })?;
 
                 let topic = request
                     .arguments
@@ -373,14 +411,14 @@ impl ServerHandler for Context7Tool {
 
 pub async fn run_server(api_key: Option<String>) -> Result<()> {
     let handler = Context7Tool::new(api_key);
-    
+
     info!("Context7 MCP server starting with stdio transport");
-    
-    // Use the stdio transport with async read/write  
+
+    // Use the stdio transport with async read/write
     let (stdin, stdout) = stdio();
     let transport = AsyncRwTransport::new(stdin, stdout);
-    
+
     serve_server(handler, transport).await?;
-    
+
     Ok(())
 }

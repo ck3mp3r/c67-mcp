@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
     // Initialize tracing
     let filter = match cli.log_level.as_str() {
         "trace" => "trace",
-        "debug" => "debug", 
+        "debug" => "debug",
         "info" => "info",
         "warn" => "warn",
         "error" => "error",
