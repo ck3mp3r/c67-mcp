@@ -128,11 +128,11 @@
       },
       "locked": {
         "dir": "rustix",
-        "lastModified": 1758673896,
-        "narHash": "sha256-5UeWgj/n37twuArsKCRi0Hv+sz3HM6B/TXuLJyeMjJw=",
+        "lastModified": 1758820129,
+        "narHash": "sha256-X9om6hAE1LpmsL3siElkJzJKVhXXMVdybP3XurufeGE=",
         "owner": "ck3mp3r",
         "repo": "flakes",
-        "rev": "5e24117726b76b32d5a4dfbb89c70594fd878348",
+        "rev": "a8bb02f9715868b0a084d5ecdc48799646092b4b",
         "type": "github"
       },
       "original": {
