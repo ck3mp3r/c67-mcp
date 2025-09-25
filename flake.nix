@@ -13,7 +13,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rustix = {
-      url = "github:ck3mp3r/flakes?dir=rustix&ref=feature/custom-package-names";
+      url = "github:ck3mp3r/flakes?dir=rustix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

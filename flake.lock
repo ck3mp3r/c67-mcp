@@ -128,17 +128,16 @@
       },
       "locked": {
         "dir": "rustix",
-        "lastModified": 1758825379,
+        "lastModified": 1758831791,
         "narHash": "sha256-8D22KQUrp6S3psOINnNyi5h5k1wicaJwSHSEhMtxaTE=",
         "owner": "ck3mp3r",
         "repo": "flakes",
-        "rev": "1267edbdca073ecde92c7fefe5a01b570f9cf1fc",
+        "rev": "45dcfa341c0e126f4b5bec79cd69205e51228d21",
         "type": "github"
       },
       "original": {
         "dir": "rustix",
         "owner": "ck3mp3r",
-        "ref": "feature/custom-package-names",
         "repo": "flakes",
         "type": "github"
       }
