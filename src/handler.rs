@@ -17,30 +17,35 @@ const MINIMUM_TOKENS: u32 = 1000;
 const DEFAULT_TOKENS: u32 = 5000;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct SearchResult {
-    id: String,
-    title: String,
-    description: String,
+pub struct SearchResult {
+    pub id: String,
+    pub title: String,
+    pub description: String,
     #[serde(rename = "totalSnippets")]
-    total_snippets: Option<i32>,
+    pub total_snippets: Option<i32>,
     #[serde(rename = "trustScore")]
-    trust_score: Option<i32>,
-    versions: Option<Vec<String>>,
+    pub trust_score: Option<i32>,
+    pub versions: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct SearchResponse {
-    results: Vec<SearchResult>,
-    error: Option<String>,
+pub struct SearchResponse {
+    pub results: Vec<SearchResult>,
+    pub error: Option<String>,
 }
 
-struct Context7Client {
+pub struct Context7Client {
     client: Client,
     api_key: Option<String>,
+    base_url: String,
 }
 
 impl Context7Client {
     fn new(api_key: Option<String>) -> Self {
+        Self::new_with_base_url(api_key, CONTEXT7_API_BASE_URL.to_string())
+    }
+
+    pub fn new_with_base_url(api_key: Option<String>, base_url: String) -> Self {
         let mut client_builder = Client::builder();
 
         // Configure proxy if environment variables are set
@@ -57,11 +62,12 @@ impl Context7Client {
         Self {
             client: client_builder.build().unwrap_or_else(|_| Client::new()),
             api_key,
+            base_url,
         }
     }
 
-    async fn search_libraries(&self, query: &str) -> Result<SearchResponse> {
-        let url = format!("{}/v1/search", CONTEXT7_API_BASE_URL);
+    pub async fn search_libraries(&self, query: &str) -> Result<SearchResponse> {
+        let url = format!("{}/v1/search", self.base_url);
 
         let mut request = self.client.get(&url).query(&[("query", query)]);
 
@@ -96,14 +102,14 @@ impl Context7Client {
         }
     }
 
-    async fn fetch_library_documentation(
+    pub async fn fetch_library_documentation(
         &self,
         library_id: &str,
         tokens: Option<u32>,
         topic: Option<&str>,
     ) -> Result<Option<String>> {
         let library_id = library_id.strip_prefix('/').unwrap_or(library_id);
-        let url = format!("{}/v1/{}", CONTEXT7_API_BASE_URL, library_id);
+        let url = format!("{}/v1/{}", self.base_url, library_id);
 
         let tokens = tokens.unwrap_or(DEFAULT_TOKENS).max(MINIMUM_TOKENS);
 
@@ -158,9 +164,15 @@ impl Context7Tool {
             client: Arc::new(Context7Client::new(api_key)),
         }
     }
+
+    pub fn new_with_client(client: Context7Client) -> Self {
+        Self {
+            client: Arc::new(client),
+        }
+    }
 }
 
-fn format_search_results(response: &SearchResponse) -> String {
+pub fn format_search_results(response: &SearchResponse) -> String {
     if response.results.is_empty() {
         return "No documentation libraries found matching your query.".to_string();
     }
