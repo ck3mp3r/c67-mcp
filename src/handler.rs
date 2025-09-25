@@ -1,13 +1,13 @@
 use anyhow::Result;
-use reqwest::Client;
-use rmcp::ErrorData as McpError;
-use rmcp::handler::server::ServerHandler;
-use rmcp::model::*;
-use rmcp::service::{RequestContext, RoleServer, serve_server};
-use rmcp::transport::async_rw::AsyncRwTransport;
-use rmcp::transport::io::stdio;
+use rmcp::{
+    RoleServer, ServiceExt,
+    handler::server::ServerHandler,
+    model::*,
+    serde_json::{Map, Value},
+    service::RequestContext,
+    transport,
+};
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
 use std::env;
 use std::sync::Arc;
 use tracing::{debug, error, info};
@@ -15,6 +15,7 @@ use tracing::{debug, error, info};
 const CONTEXT7_API_BASE_URL: &str = "https://context7.com/api";
 const MINIMUM_TOKENS: u32 = 1000;
 const DEFAULT_TOKENS: u32 = 5000;
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResult {
@@ -24,7 +25,7 @@ pub struct SearchResult {
     #[serde(rename = "totalSnippets")]
     pub total_snippets: Option<i32>,
     #[serde(rename = "trustScore")]
-    pub trust_score: Option<i32>,
+    pub trust_score: Option<f64>,
     pub versions: Option<Vec<String>>,
 }
 
@@ -35,7 +36,6 @@ pub struct SearchResponse {
 }
 
 pub struct Context7Client {
-    client: Client,
     api_key: Option<String>,
     base_url: String,
 }
@@ -46,20 +46,7 @@ impl Context7Client {
     }
 
     pub fn new_with_base_url(api_key: Option<String>, base_url: String) -> Self {
-        let mut client_builder = Client::builder();
-
-        // Configure proxy if environment variables are set
-        if let Ok(proxy_url) = env::var("HTTPS_PROXY")
-            .or_else(|_| env::var("https_proxy"))
-            .or_else(|_| env::var("HTTP_PROXY"))
-            .or_else(|_| env::var("http_proxy"))
-            && let Ok(proxy) = reqwest::Proxy::all(proxy_url)
-        {
-            client_builder = client_builder.proxy(proxy);
-        }
-
         Self {
-            client: client_builder.build().unwrap_or_else(|_| Client::new()),
             api_key,
             base_url,
         }
@@ -67,39 +54,45 @@ impl Context7Client {
 
     pub async fn search_libraries(&self, query: &str) -> Result<SearchResponse> {
         let url = format!("{}/v1/search", self.base_url);
+        
+        // Use tokio::task::spawn_blocking to run synchronous ureq in async context
+        let api_key = self.api_key.clone();
+        let query = query.to_string();
+        let result = tokio::task::spawn_blocking(move || {
+            let mut request = ureq::get(&url).query("query", &query);
 
-        let mut request = self.client.get(&url).query(&[("query", query)]);
+            if let Some(api_key) = api_key {
+                request = request.set("Authorization", &format!("Bearer {}", api_key));
+            }
 
-        if let Some(api_key) = &self.api_key {
-            request = request.bearer_auth(api_key);
-        }
+            request.call()
+        }).await?;
 
-        let response = request.send().await?;
-
-        match response.status() {
-            reqwest::StatusCode::OK => {
-                let search_response: SearchResponse = response.json().await?;
+        match result {
+            Ok(response) => {
+                let search_response: SearchResponse = response.into_json()?;
                 Ok(search_response)
             }
-            reqwest::StatusCode::TOO_MANY_REQUESTS => Ok(SearchResponse {
+            Err(ureq::Error::Status(429, _)) => Ok(SearchResponse {
                 results: vec![],
                 error: Some(
                     "Rate limited due to too many requests. Please try again later.".to_string(),
                 ),
             }),
-            reqwest::StatusCode::UNAUTHORIZED => Ok(SearchResponse {
+            Err(ureq::Error::Status(401, _)) => Ok(SearchResponse {
                 results: vec![],
                 error: Some("Unauthorized. Please check your API key.".to_string()),
             }),
-            status => Ok(SearchResponse {
+            Err(e) => Ok(SearchResponse {
                 results: vec![],
                 error: Some(format!(
-                    "Failed to search libraries. Error code: {}",
-                    status
+                    "Failed to search libraries: {}",
+                    e
                 )),
             }),
         }
     }
+
 
     pub async fn fetch_library_documentation(
         &self,
@@ -112,47 +105,54 @@ impl Context7Client {
 
         let tokens = tokens.unwrap_or(DEFAULT_TOKENS).max(MINIMUM_TOKENS);
 
-        let mut request = self
-            .client
-            .get(&url)
-            .query(&[("tokens", tokens.to_string())])
-            .query(&[("type", "txt")]);
+        // Use tokio::task::spawn_blocking to run synchronous ureq in async context
+        let api_key = self.api_key.clone();
+        let topic = topic.map(|s| s.to_string());
+        
+        let result = tokio::task::spawn_blocking(move || {
+            let mut request = ureq::get(&url)
+                .query("tokens", &tokens.to_string())
+                .query("type", "txt");
 
-        if let Some(topic) = topic {
-            request = request.query(&[("topic", topic)]);
-        }
+            if let Some(topic) = topic {
+                request = request.query("topic", &topic);
+            }
 
-        if let Some(api_key) = &self.api_key {
-            request = request.bearer_auth(api_key);
-        }
+            if let Some(api_key) = api_key {
+                request = request.set("Authorization", &format!("Bearer {}", api_key));
+            }
 
-        let response = request.send().await?;
+            request = request.set("X-Context7-Source", "mcp-server");
 
-        match response.status() {
-            reqwest::StatusCode::OK => {
-                let text = response.text().await?;
+            request.call()
+        }).await?;
+
+        match result {
+            Ok(response) => {
+                let text = response.into_string()?;
                 if text.is_empty() || text == "No content available" || text == "No context data available" {
                     Ok(None)
                 } else {
                     Ok(Some(text))
                 }
             }
-            reqwest::StatusCode::TOO_MANY_REQUESTS => {
+            Err(ureq::Error::Status(429, _)) => {
                 Ok(Some("Rate limited due to too many requests. Please try again later.".to_string()))
             }
-            reqwest::StatusCode::NOT_FOUND => {
+            Err(ureq::Error::Status(404, _)) => {
                 Ok(Some("The library you are trying to access does not exist. Please try with a different library ID.".to_string()))
             }
-            reqwest::StatusCode::UNAUTHORIZED => {
+            Err(ureq::Error::Status(401, _)) => {
                 Ok(Some("Unauthorized. Please check your API key.".to_string()))
             }
-            status => {
-                Ok(Some(format!("Failed to fetch documentation. Error code: {}", status)))
+            Err(e) => {
+                Ok(Some(format!("Failed to fetch documentation: {}", e)))
             }
         }
     }
 }
 
+#[derive(Clone)]
 pub struct Context7Tool {
     client: Arc<Context7Client>,
 }
@@ -187,9 +187,9 @@ pub fn format_search_results(response: &SearchResponse) -> String {
             }
 
             if let Some(trust_score) = result.trust_score
-                && trust_score != -1
+                && trust_score >= 0.0
             {
-                parts.push(format!("- Trust Score: {}", trust_score));
+                parts.push(format!("- Trust Score: {:.1}", trust_score));
             }
 
             if let Some(versions) = &result.versions
@@ -216,11 +216,8 @@ impl ServerHandler for Context7Tool {
             server_info: Implementation {
                 name: "c67-mcp".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
-                icons: None,
-                title: None,
-                website_url: None,
             },
-            instructions: None,
+            instructions: Some("Use this server to retrieve up-to-date documentation and code examples for any library.".to_string()),
         }
     }
 
@@ -228,7 +225,7 @@ impl ServerHandler for Context7Tool {
         &self,
         _request: Option<PaginatedRequestParam>,
         _context: RequestContext<RoleServer>,
-    ) -> Result<ListToolsResult, McpError> {
+    ) -> Result<ListToolsResult, ErrorData> {
         let mut tools = Vec::new();
 
         // Create input schemas as Arc<Map<String, Value>>
@@ -253,12 +250,9 @@ impl ServerHandler for Context7Tool {
 
         tools.push(Tool {
             name: "resolve-library-id".into(),
-            description: Some("Resolves a package/product name to a Context7-compatible library ID and returns a list of matching libraries.".into()),
+            description: Some("Resolves a package/product name to a Context7-compatible library ID and returns a list of matching libraries.\n\nYou MUST call this function before 'get-library-docs' to obtain a valid Context7-compatible library ID UNLESS the user explicitly provides a library ID in the format '/org/project' or '/org/project/version' in their query.\n\nSelection Process:\n1. Analyze the query to understand what library/package the user is looking for\n2. Return the most relevant match based on:\n- Name similarity to the query (exact matches prioritized)\n- Description relevance to the query's intent\n- Documentation coverage (prioritize libraries with higher Code Snippet counts)\n- Trust score (consider libraries with scores of 7-10 more authoritative)\n\nResponse Format:\n- Return the selected library ID in a clearly marked section\n- Provide a brief explanation for why this library was chosen\n- If multiple good matches exist, acknowledge this but proceed with the most relevant one\n- If no good matches exist, clearly state this and suggest query refinements\n\nFor ambiguous queries, request clarification before proceeding with a best-guess match.".into()),
             input_schema: Arc::new(resolve_schema),
-            output_schema: None,
             annotations: None,
-            icons: None,
-            title: None,
         });
 
         let mut docs_schema = Map::new();
@@ -298,12 +292,9 @@ impl ServerHandler for Context7Tool {
 
         tools.push(Tool {
             name: "get-library-docs".into(),
-            description: Some("Fetches up-to-date documentation for a library. You must call 'resolve-library-id' first to obtain the exact Context7-compatible library ID required to use this tool.".into()),
+            description: Some("Fetches up-to-date documentation for a library. You must call 'resolve-library-id' first to obtain the exact Context7-compatible library ID required to use this tool, UNLESS the user explicitly provides a library ID in the format '/org/project' or '/org/project/version' in their query.".into()),
             input_schema: Arc::new(docs_schema),
-            output_schema: None,
             annotations: None,
-            icons: None,
-            title: None,
         });
 
         Ok(ListToolsResult {
@@ -316,7 +307,7 @@ impl ServerHandler for Context7Tool {
         &self,
         request: CallToolRequestParam,
         _context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResult, ErrorData> {
         match request.name.as_ref() {
             "resolve-library-id" => {
                 let library_name = request
@@ -325,7 +316,7 @@ impl ServerHandler for Context7Tool {
                     .and_then(|args| args.get("libraryName"))
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
-                        McpError::invalid_params("Missing libraryName parameter", None)
+                        ErrorData::invalid_request("Missing libraryName parameter".to_string(), None)
                     })?;
 
                 debug!("Searching for library: {}", library_name);
@@ -345,6 +336,8 @@ impl ServerHandler for Context7Tool {
                     }
                     Err(e) => {
                         error!("Failed to search libraries: {}", e);
+                        error!("Error source: {:?}", e.source());
+                        error!("Error kind: {:#?}", e);
                         let text = format!(
                             "Failed to retrieve library documentation data from Context7: {}",
                             e
@@ -360,10 +353,7 @@ impl ServerHandler for Context7Tool {
                     .and_then(|args| args.get("context7CompatibleLibraryID"))
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
-                        McpError::invalid_params(
-                            "Missing context7CompatibleLibraryID parameter",
-                            None,
-                        )
+                        ErrorData::invalid_request("Missing context7CompatibleLibraryID parameter".to_string(), None)
                     })?;
 
                 let topic = request
@@ -404,21 +394,17 @@ impl ServerHandler for Context7Tool {
                     }
                 }
             }
-            _ => Err(McpError::method_not_found::<CallToolRequestMethod>()),
+            _ => Err(ErrorData::invalid_request(format!("Unknown tool: {}", request.name), None)),
         }
     }
 }
 
 pub async fn run_server(api_key: Option<String>) -> Result<()> {
-    let handler = Context7Tool::new(api_key);
-
+    let tool = Context7Tool::new(api_key);
+    
     info!("Context7 MCP server starting with stdio transport");
-
-    // Use the stdio transport with async read/write
-    let (stdin, stdout) = stdio();
-    let transport = AsyncRwTransport::new(stdin, stdout);
-
-    serve_server(handler, transport).await?;
-
+    
+    let service = tool.serve(transport::stdio()).await?;
+    service.waiting().await?;
     Ok(())
 }

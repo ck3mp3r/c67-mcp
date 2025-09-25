@@ -13,7 +13,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rustix = {
-      url = "github:ck3mp3r/flakes?dir=rustix";
+      url = "github:ck3mp3r/flakes?dir=rustix&ref=feature/custom-package-names";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -68,6 +68,7 @@
           systems
           ;
         archiveAndHash = true;
+        packageName = "c67-mcp";
       };
     })
     // {

@@ -17,7 +17,7 @@ async fn test_context7_client_search_success() {
                     "title": "Nix",
                     "description": "The Nix package manager",
                     "totalSnippets": 1241,
-                    "trustScore": 9,
+                    "trustScore": 9.0,
                     "versions": ["2.18.0", "2.17.0"]
                 }
             ],
@@ -35,7 +35,7 @@ async fn test_context7_client_search_success() {
     assert_eq!(response.results[0].id, "/nixos/nix");
     assert_eq!(response.results[0].title, "Nix");
     assert_eq!(response.results[0].total_snippets, Some(1241));
-    assert_eq!(response.results[0].trust_score, Some(9));
+    assert_eq!(response.results[0].trust_score, Some(9.0));
     assert!(response.error.is_none());
 }
 
@@ -259,7 +259,7 @@ async fn test_search_response_formatting() {
                 title: "Test Library 1".to_string(),
                 description: "A test library".to_string(),
                 total_snippets: Some(100),
-                trust_score: Some(8),
+                trust_score: Some(8.0),
                 versions: Some(vec!["1.0.0".to_string(), "2.0.0".to_string()]),
             },
             SearchResult {
@@ -267,7 +267,7 @@ async fn test_search_response_formatting() {
                 title: "Test Library 2".to_string(),
                 description: "Another test library".to_string(),
                 total_snippets: Some(-1), // Should be filtered out
-                trust_score: Some(-1),    // Should be filtered out
+                trust_score: Some(-1.0),    // Should be filtered out
                 versions: None,
             },
         ],
@@ -280,14 +280,14 @@ async fn test_search_response_formatting() {
     assert!(formatted.contains("Test Library 1"));
     assert!(formatted.contains("/test/lib1"));
     assert!(formatted.contains("Code Snippets: 100"));
-    assert!(formatted.contains("Trust Score: 8"));
+    assert!(formatted.contains("Trust Score: 8.0"));
     assert!(formatted.contains("Versions: 1.0.0, 2.0.0"));
 
     // Check second library
     assert!(formatted.contains("Test Library 2"));
     assert!(formatted.contains("/test/lib2"));
     assert!(!formatted.contains("Code Snippets: -1")); // Should be filtered out
-    assert!(!formatted.contains("Trust Score: -1")); // Should be filtered out
+    assert!(!formatted.contains("Trust Score: -1.0")); // Should be filtered out
 
     // Check separator
     assert!(formatted.contains("----------"));
