@@ -16,7 +16,6 @@ const CONTEXT7_API_BASE_URL: &str = "https://context7.com/api";
 const MINIMUM_TOKENS: u32 = 1000;
 const DEFAULT_TOKENS: u32 = 5000;
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResult {
     pub id: String,
@@ -46,15 +45,12 @@ impl Context7Client {
     }
 
     pub fn new_with_base_url(api_key: Option<String>, base_url: String) -> Self {
-        Self {
-            api_key,
-            base_url,
-        }
+        Self { api_key, base_url }
     }
 
     pub async fn search_libraries(&self, query: &str) -> Result<SearchResponse> {
         let url = format!("{}/v1/search", self.base_url);
-        
+
         // Use tokio::task::spawn_blocking to run synchronous ureq in async context
         let api_key = self.api_key.clone();
         let query = query.to_string();
@@ -66,7 +62,8 @@ impl Context7Client {
             }
 
             request.call()
-        }).await?;
+        })
+        .await?;
 
         match result {
             Ok(response) => {
@@ -85,14 +82,10 @@ impl Context7Client {
             }),
             Err(e) => Ok(SearchResponse {
                 results: vec![],
-                error: Some(format!(
-                    "Failed to search libraries: {}",
-                    e
-                )),
+                error: Some(format!("Failed to search libraries: {}", e)),
             }),
         }
     }
-
 
     pub async fn fetch_library_documentation(
         &self,
@@ -108,7 +101,7 @@ impl Context7Client {
         // Use tokio::task::spawn_blocking to run synchronous ureq in async context
         let api_key = self.api_key.clone();
         let topic = topic.map(|s| s.to_string());
-        
+
         let result = tokio::task::spawn_blocking(move || {
             let mut request = ureq::get(&url)
                 .query("tokens", &tokens.to_string())
@@ -125,7 +118,8 @@ impl Context7Client {
             request = request.set("X-Context7-Source", "mcp-server");
 
             request.call()
-        }).await?;
+        })
+        .await?;
 
         match result {
             Ok(response) => {
@@ -316,7 +310,10 @@ impl ServerHandler for Context7Tool {
                     .and_then(|args| args.get("libraryName"))
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
-                        ErrorData::invalid_request("Missing libraryName parameter".to_string(), None)
+                        ErrorData::invalid_request(
+                            "Missing libraryName parameter".to_string(),
+                            None,
+                        )
                     })?;
 
                 debug!("Searching for library: {}", library_name);
@@ -353,7 +350,10 @@ impl ServerHandler for Context7Tool {
                     .and_then(|args| args.get("context7CompatibleLibraryID"))
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
-                        ErrorData::invalid_request("Missing context7CompatibleLibraryID parameter".to_string(), None)
+                        ErrorData::invalid_request(
+                            "Missing context7CompatibleLibraryID parameter".to_string(),
+                            None,
+                        )
                     })?;
 
                 let topic = request
@@ -394,16 +394,19 @@ impl ServerHandler for Context7Tool {
                     }
                 }
             }
-            _ => Err(ErrorData::invalid_request(format!("Unknown tool: {}", request.name), None)),
+            _ => Err(ErrorData::invalid_request(
+                format!("Unknown tool: {}", request.name),
+                None,
+            )),
         }
     }
 }
 
 pub async fn run_server(api_key: Option<String>) -> Result<()> {
     let tool = Context7Tool::new(api_key);
-    
+
     info!("Context7 MCP server starting with stdio transport");
-    
+
     let service = tool.serve(transport::stdio()).await?;
     service.waiting().await?;
     Ok(())
