@@ -1,4 +1,4 @@
-use c7_mcp::handler::{Context7Client, Context7Tool};
+use c67_mcp::handler::{Context7Client, Context7Tool};
 use rmcp::handler::server::ServerHandler;
 
 #[tokio::test]
@@ -7,7 +7,7 @@ async fn test_server_initialization() {
 
     // Test get_info returns valid server information
     let info = server.get_info();
-    assert_eq!(info.server_info.name, "c7-mcp");
+    assert_eq!(info.server_info.name, "c67-mcp");
     assert_eq!(info.server_info.version, env!("CARGO_PKG_VERSION"));
 
     // Test server capabilities

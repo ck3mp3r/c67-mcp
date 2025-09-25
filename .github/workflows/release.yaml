@@ -61,18 +61,18 @@ jobs:
 
       - name: Copy build outputs for uniqueness
         run: |
-          cp result/c7-mcp.tgz ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.tgz
-          cp result/c7-mcp.sha256 ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.sha256
-          cp result/c7-mcp-nix.sha256 ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}-nix.sha256
+          cp result/c67-mcp.tgz ${{ github.workspace }}/c67-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.tgz
+          cp result/c67-mcp.sha256 ${{ github.workspace }}/c67-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.sha256
+          cp result/c67-mcp-nix.sha256 ${{ github.workspace }}/c67-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}-nix.sha256
 
       - name: Upload build outputs as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: c7-mcp-assets-${{ matrix.nix_system }}
+          name: c67-mcp-assets-${{ matrix.nix_system }}
           path: |
-            ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.tgz
-            ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.sha256
-            ${{ github.workspace }}/c7-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}-nix.sha256
+            ${{ github.workspace }}/c67-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.tgz
+            ${{ github.workspace }}/c67-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}.sha256
+            ${{ github.workspace }}/c67-mcp-${{ needs.get-version.outputs.semver }}-${{ matrix.nix_system }}-nix.sha256
 
   release:
     needs: [get-version, build]
@@ -107,7 +107,7 @@ jobs:
           mkdir -p data
           for file in ./artifacts/**/*.tgz; do
             FILENAME=$(basename "$file")
-            PLATFORM=$(echo "$FILENAME" | sed -E 's/c7-mcp-[0-9.]+-(.+)\.tgz/\1/')
+            PLATFORM=$(echo "$FILENAME" | sed -E 's/c67-mcp-[0-9.]+-(.+)\.tgz/\1/')
 
             SHA256_FILE="${file%.tgz}-nix.sha256"
             SHA=$(cat "$SHA256_FILE")

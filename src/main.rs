@@ -5,7 +5,7 @@ use clap::Parser;
 use handler::run_server;
 
 #[derive(Parser)]
-#[command(name = "c7-mcp")]
+#[command(name = "c67-mcp")]
 #[command(about = "A Rust alternative to the Context7 MCP server")]
 #[command(version)]
 struct Cli {

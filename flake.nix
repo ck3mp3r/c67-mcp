@@ -72,7 +72,7 @@
     })
     // {
       overlays.default = final: prev: {
-        nu-mcp = self.packages.${final.system}.default;
+        c67-mcp = self.packages.${final.system}.default;
       };
     };
 }

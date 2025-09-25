@@ -214,7 +214,7 @@ impl ServerHandler for Context7Tool {
                 ..Default::default()
             },
             server_info: Implementation {
-                name: "c7-mcp".to_string(),
+                name: "c67-mcp".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 icons: None,
                 title: None,

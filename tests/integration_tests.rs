@@ -1,4 +1,4 @@
-use c7_mcp::handler::{Context7Client, SearchResponse, SearchResult};
+use c67_mcp::handler::{Context7Client, SearchResponse, SearchResult};
 use serde_json::json;
 use wiremock::matchers::{header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -238,7 +238,7 @@ async fn test_token_limits_enforcement() {
 
 #[tokio::test]
 async fn test_search_response_formatting() {
-    use c7_mcp::handler::format_search_results;
+    use c67_mcp::handler::format_search_results;
 
     // Test empty results
     let empty_response = SearchResponse {
