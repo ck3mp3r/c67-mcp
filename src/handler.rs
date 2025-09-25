@@ -53,11 +53,9 @@ impl Context7Client {
             .or_else(|_| env::var("https_proxy"))
             .or_else(|_| env::var("HTTP_PROXY"))
             .or_else(|_| env::var("http_proxy"))
-        {
-            if let Ok(proxy) = reqwest::Proxy::all(proxy_url) {
+            && let Ok(proxy) = reqwest::Proxy::all(proxy_url) {
                 client_builder = client_builder.proxy(proxy);
             }
-        }
 
         Self {
             client: client_builder.build().unwrap_or_else(|_| Client::new()),
@@ -187,23 +185,20 @@ pub fn format_search_results(response: &SearchResponse) -> String {
                 format!("- Description: {}", result.description),
             ];
 
-            if let Some(snippets) = result.total_snippets {
-                if snippets != -1 {
+            if let Some(snippets) = result.total_snippets
+                && snippets != -1 {
                     parts.push(format!("- Code Snippets: {}", snippets));
                 }
-            }
 
-            if let Some(trust_score) = result.trust_score {
-                if trust_score != -1 {
+            if let Some(trust_score) = result.trust_score
+                && trust_score != -1 {
                     parts.push(format!("- Trust Score: {}", trust_score));
                 }
-            }
 
-            if let Some(versions) = &result.versions {
-                if !versions.is_empty() {
+            if let Some(versions) = &result.versions
+                && !versions.is_empty() {
                     parts.push(format!("- Versions: {}", versions.join(", ")));
                 }
-            }
 
             parts.join("\n")
         })
