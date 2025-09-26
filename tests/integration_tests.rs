@@ -54,8 +54,11 @@ async fn test_context7_client_search_with_api_key() {
         .mount(&mock_server)
         .await;
 
-    let client =
-        Context7Client::new_with_base_url(Some("test-api-key".to_string()), mock_server.uri(), false);
+    let client = Context7Client::new_with_base_url(
+        Some("test-api-key".to_string()),
+        mock_server.uri(),
+        false,
+    );
     let result = client.search_libraries("react").await;
 
     assert!(result.is_ok());
@@ -267,7 +270,7 @@ async fn test_search_response_formatting() {
                 title: "Test Library 2".to_string(),
                 description: "Another test library".to_string(),
                 total_snippets: Some(-1), // Should be filtered out
-                trust_score: Some(-1.0),    // Should be filtered out
+                trust_score: Some(-1.0),  // Should be filtered out
                 versions: None,
             },
         ],
