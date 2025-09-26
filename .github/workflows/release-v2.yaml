@@ -1,0 +1,128 @@
+name: Multi-Arch Nix Release (v2)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  checks: read
+  deployments: read
+  issues: read
+  pull-requests: read
+  id-token: write
+
+jobs:
+  prep-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.prep.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v10
+
+      - name: Install Nushell
+        run: nix profile add nixpkgs#nushell
+
+      - name: Prepare release
+        id: prep
+        shell: nu {0}
+        run: |
+          use .github/scripts/release.nu
+          setup-git-user
+
+          let current_version = (open Cargo.toml).package.version
+          let latest_tag = get-latest-tag
+          let version = (calculate-semver $latest_tag $current_version | create-release-branch)
+          update-cargo-toml $version | commit-files $"Prepare release ($version)"
+          $"version=($version)" | save --append $env.GITHUB_OUTPUT
+
+  build:
+    needs: prep-release
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            nix_system: x86_64-linux
+          - os: macos-14
+            nix_system: aarch64-darwin
+          - os: macos-13
+            nix_system: x86_64-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/${{ needs.prep-release.outputs.version }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v10
+
+      - name: Install Nushell
+        run: nix profile add nixpkgs#nushell
+
+      - name: Build for ${{ matrix.nix_system }}
+        run: nix build .#${{ matrix.nix_system }}
+
+      - name: Copy and upload build outputs
+        shell: nu {0}
+        run: |
+          use .github/scripts/release.nu
+          let version = "${{ needs.prep-release.outputs.version }}"
+
+          # Copy with version-specific names
+          cp result/c67-mcp.tgz $"c67-mcp-($version)-${{ matrix.nix_system }}.tgz"
+          cp result/c67-mcp.sha256 $"c67-mcp-($version)-${{ matrix.nix_system }}.sha256"
+          cp result/c67-mcp-nix.sha256 $"c67-mcp-($version)-${{ matrix.nix_system }}-nix.sha256"
+
+          # Upload files to workflow run
+          glob $"c67-mcp-($version)-${{ matrix.nix_system }}*" | upload-run-artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  finalize-release:
+    needs:
+      - prep-release
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/${{ needs.prep-release.outputs.version }}
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v10
+
+      - name: Install Nushell
+        run: nix profile add nixpkgs#nushell
+
+      - name: Finalize release
+        shell: nu {0}
+        run: |
+          use .github/scripts/release.nu
+          setup-git-user
+
+          let version = "${{ needs.prep-release.outputs.version }}"
+
+          # Download artifacts from workflow run
+          download-run-artifacts $"c67-mcp-($version)-*"
+
+          # Generate platform data and commit
+          generate-platform-data-for $version "c67-mcp" "./artifacts" | commit-files $"Add platform data for release ($version)"
+
+          # Create release and upload artifacts using gh CLI
+          create-github-release $version
+          glob "./artifacts/**/*.*" | upload-to-release $version
+
+          # Merge and cleanup
+          merge-and-cleanup $version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
