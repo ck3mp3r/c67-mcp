@@ -24,6 +24,10 @@ struct Cli {
     /// Enable verbose output to stderr
     #[arg(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
+
+    /// Disable TLS certificate verification (insecure, for corporate MITM)
+    #[arg(long)]
+    insecure: bool,
 }
 
 #[tokio::main]
@@ -45,5 +49,5 @@ async fn main() -> Result<()> {
         .with_writer(std::io::stderr)
         .init();
 
-    run_server(cli.api_key).await
+    run_server(cli.api_key, cli.insecure).await
 }

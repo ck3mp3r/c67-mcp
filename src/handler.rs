@@ -37,15 +37,16 @@ pub struct SearchResponse {
 pub struct Context7Client {
     api_key: Option<String>,
     base_url: String,
+    insecure: bool,
 }
 
 impl Context7Client {
-    fn new(api_key: Option<String>) -> Self {
-        Self::new_with_base_url(api_key, CONTEXT7_API_BASE_URL.to_string())
+    fn new(api_key: Option<String>, insecure: bool) -> Self {
+        Self::new_with_base_url(api_key, CONTEXT7_API_BASE_URL.to_string(), insecure)
     }
 
-    pub fn new_with_base_url(api_key: Option<String>, base_url: String) -> Self {
-        Self { api_key, base_url }
+    pub fn new_with_base_url(api_key: Option<String>, base_url: String, insecure: bool) -> Self {
+        Self { api_key, base_url, insecure }
     }
 
     pub async fn search_libraries(&self, query: &str) -> Result<SearchResponse> {
@@ -54,8 +55,22 @@ impl Context7Client {
         // Use tokio::task::spawn_blocking to run synchronous ureq in async context
         let api_key = self.api_key.clone();
         let query = query.to_string();
+        let insecure = self.insecure;
         let result = tokio::task::spawn_blocking(move || {
-            let mut request = ureq::get(&url).query("query", &query);
+            let agent = if insecure {
+                let tls_connector = native_tls::TlsConnector::builder()
+                    .danger_accept_invalid_certs(true)
+                    .danger_accept_invalid_hostnames(true)
+                    .build()
+                    .map_err(|e| ureq::Error::from(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+                ureq::AgentBuilder::new()
+                    .tls_connector(std::sync::Arc::new(tls_connector))
+                    .build()
+            } else {
+                ureq::agent()
+            };
+
+            let mut request = agent.get(&url).query("query", &query);
 
             if let Some(api_key) = api_key {
                 request = request.set("Authorization", &format!("Bearer {}", api_key));
@@ -101,9 +116,23 @@ impl Context7Client {
         // Use tokio::task::spawn_blocking to run synchronous ureq in async context
         let api_key = self.api_key.clone();
         let topic = topic.map(|s| s.to_string());
+        let insecure = self.insecure;
 
         let result = tokio::task::spawn_blocking(move || {
-            let mut request = ureq::get(&url)
+            let agent = if insecure {
+                let tls_connector = native_tls::TlsConnector::builder()
+                    .danger_accept_invalid_certs(true)
+                    .danger_accept_invalid_hostnames(true)
+                    .build()
+                    .map_err(|e| ureq::Error::from(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+                ureq::AgentBuilder::new()
+                    .tls_connector(std::sync::Arc::new(tls_connector))
+                    .build()
+            } else {
+                ureq::agent()
+            };
+
+            let mut request = agent.get(&url)
                 .query("tokens", &tokens.to_string())
                 .query("type", "txt");
 
@@ -152,9 +181,9 @@ pub struct Context7Tool {
 }
 
 impl Context7Tool {
-    pub fn new(api_key: Option<String>) -> Self {
+    pub fn new(api_key: Option<String>, insecure: bool) -> Self {
         Self {
-            client: Arc::new(Context7Client::new(api_key)),
+            client: Arc::new(Context7Client::new(api_key, insecure)),
         }
     }
 }
@@ -402,10 +431,14 @@ impl ServerHandler for Context7Tool {
     }
 }
 
-pub async fn run_server(api_key: Option<String>) -> Result<()> {
-    let tool = Context7Tool::new(api_key);
+pub async fn run_server(api_key: Option<String>, insecure: bool) -> Result<()> {
+    let tool = Context7Tool::new(api_key, insecure);
 
-    info!("Context7 MCP server starting with stdio transport");
+    if insecure {
+        info!("Context7 MCP server starting with stdio transport (TLS verification disabled)");
+    } else {
+        info!("Context7 MCP server starting with stdio transport");
+    }
 
     let service = tool.serve(transport::stdio()).await?;
     service.waiting().await?;
