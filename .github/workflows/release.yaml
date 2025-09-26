@@ -147,7 +147,7 @@ jobs:
           name: "Release v${{ needs.get-version.outputs.semver }}"
           draft: false
           prerelease: false
-          update_existing: true
+          overwrite_files: true
           files: ./artifacts/**/*.*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

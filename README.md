@@ -62,6 +62,19 @@ Add this to your Claude Desktop MCP settings (`~/Library/Application Support/Cla
 }
 ```
 
+For development or testing environments where you need to disable TLS verification, add the `--insecure` flag:
+
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "command": "/path/to/c67-mcp",
+      "args": ["--api-key", "your-context7-api-key-here", "--insecure"]
+    }
+  }
+}
+```
+
 ### Command Line Options
 
 ```bash
@@ -73,6 +86,7 @@ c67-mcp --help
 - `--log-level <LEVEL>`: Set logging level (trace, debug, info, warn, error)
 - `--debug`: Enable debug logging
 - `--verbose`: Increase verbosity
+- `--insecure`: Disable TLS certificate verification (useful for development/testing)
 
 ### Example Usage in Claude
 
