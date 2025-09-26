@@ -89,12 +89,13 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v10
+
       - name: Create and push release branch
         run: |
           git checkout -b release/${{ needs.get-version.outputs.semver }}
           git push origin release/${{ needs.get-version.outputs.semver }}
-
-      # Already on release branch, no need to checkout again
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
