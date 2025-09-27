@@ -38,7 +38,7 @@ jobs:
           ls -la
           ls -la .github/scripts/
 
-          source .github/scripts/release.nu
+          source ./tools/release.nu
           setup-git-user
 
           let current_version = (open Cargo.toml).package.version
@@ -77,7 +77,7 @@ jobs:
       - name: Copy and upload build outputs
         shell: nu {0}
         run: |
-          source .github/scripts/release.nu
+          source ./tools/release.nu
           let version = "${{ needs.prep-release.outputs.version }}"
 
           # Copy with version-specific names
