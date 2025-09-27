@@ -25,7 +25,7 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Setup Nu Tools
-        uses: ck3mp3r/actions/nu-tools@main
+        uses: ck3mp3r/actions/nu-tools@fix/semver-logic
 
       - name: Prepare release
         id: prep
@@ -99,7 +99,7 @@ jobs:
           token: ${{ steps.token.outputs.token }}
 
       - name: Setup Nu Tools
-        uses: ck3mp3r/actions/nu-tools@main
+        uses: ck3mp3r/actions/nu-tools@fix/semver-logic
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
