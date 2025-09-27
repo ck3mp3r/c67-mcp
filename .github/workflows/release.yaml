@@ -85,11 +85,18 @@ jobs:
       - build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/create-github-app-token@v2
+        id: token
+        with:
+          app-id: ${{ secrets.BOT_ID }}
+          private-key: ${{ secrets.BOT }}
+
       - name: Checkout release branch
         uses: actions/checkout@v4
         with:
           ref: release/${{ needs.prep-release.outputs.version }}
           fetch-depth: 0
+          token: ${{ steps.token.outputs.token }}
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v10
@@ -117,4 +124,4 @@ jobs:
           # Merge and cleanup
           merge-and-cleanup $version
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.token.outputs.token }}
