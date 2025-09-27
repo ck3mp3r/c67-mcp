@@ -66,9 +66,6 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v10
 
-      - name: Install Nushell
-        run: nix profile add nixpkgs#nushell
-
       - name: Build for ${{ matrix.nix_system }}
         run: nix build .#${{ matrix.nix_system }}
 
@@ -101,9 +98,6 @@ jobs:
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v10
-
-      - name: Install Nushell
-        run: nix profile add nixpkgs#nushell
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
