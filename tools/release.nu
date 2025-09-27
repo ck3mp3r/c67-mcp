@@ -60,7 +60,7 @@ export def create-release-branch [] {
 
     if $remote_branch_exists {
       print $"Release branch ($branch_name) exists on remote, checking out and tracking"
-      ^git checkout -b $branch_name origin/$branch_name
+      ^git checkout -b $branch_name $"origin/($branch_name)"
     } else {
       print $"Creating new release branch: ($branch_name)"
       ^git checkout -b $branch_name
