@@ -34,6 +34,10 @@ jobs:
         id: prep
         shell: nu {0}
         run: |
+          pwd
+          ls -la
+          ls -la .github/scripts/
+
           source .github/scripts/release.nu
           setup-git-user
 
