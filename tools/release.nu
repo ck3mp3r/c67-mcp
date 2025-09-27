@@ -132,7 +132,7 @@ export def generate-platform-data [
       hash: $hash
     }
 
-    $platform_data | to json | save $"data/($platform).json"
+    $platform_data | to json | save --force $"data/($platform).json"
     print $"Generated data/($platform).json"
   }
 }
