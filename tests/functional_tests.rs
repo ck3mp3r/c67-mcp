@@ -1,4 +1,4 @@
-use c67_mcp::handler::{Context7Client, Context7Tool};
+use c67_mcp::{Context7Client, Context7Tool};
 use rmcp::handler::server::ServerHandler;
 
 #[tokio::test]
