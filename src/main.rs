@@ -1,8 +1,10 @@
-mod handler;
+mod client;
+mod formatting;
+mod server;
 
 use anyhow::Result;
 use clap::Parser;
-use handler::run_server;
+use server::run_server;
 
 #[derive(Parser)]
 #[command(name = "c67-mcp")]
@@ -34,20 +36,12 @@ struct Cli {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize tracing
-    let filter = match cli.log_level.as_str() {
-        "trace" => "trace",
-        "debug" => "debug",
-        "info" => "info",
-        "warn" => "warn",
-        "error" => "error",
-        _ => "warn",
-    };
-
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_writer(std::io::stderr)
-        .init();
+    if cli.debug || cli.verbose > 0 {
+        tracing_subscriber::fmt()
+            .with_env_filter(&cli.log_level)
+            .with_writer(std::io::stderr)
+            .init();
+    }
 
     run_server(cli.api_key, cli.insecure).await
 }
