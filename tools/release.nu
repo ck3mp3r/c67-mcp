@@ -113,8 +113,8 @@ export def generate-platform-data [
   # Create data directory
   mkdir data
 
-  # Process each archive file in artifacts
-  let archive_files = (ls $"($artifacts_path)/**/*($archive_ext)" | get name)
+  # Process each archive file in artifacts (download-artifact creates subdirectories)  
+  let archive_files = (glob $"($artifacts_path)/**/*($archive_ext)")
 
   for $file in $archive_files {
     let filename = ($file | path basename)
