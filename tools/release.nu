@@ -59,9 +59,9 @@ export def update-cargo-toml [version: string] {
   let cargo_toml = (open Cargo.toml)
   let updated_cargo = ($cargo_toml | upsert package.version $version)
   $updated_cargo | to toml | save --force Cargo.toml
-  ^nix develop --command cargo check
+  ^cargo check
   print "Updated Cargo.toml and Cargo.lock"
-  ["Cargo.toml", "Cargo.lock"]
+  ["Cargo.toml" "Cargo.lock"]
 }
 
 # Commit files with message, accept list of files
@@ -72,7 +72,6 @@ export def commit-files [message: string] {
   ^git commit -m $message
   ^git push origin HEAD
 }
-
 
 # Generate per-arch data files
 export def generate-platform-data [
@@ -127,7 +126,7 @@ export def upload-to-release [version: string] {
 }
 
 # Generate platform data and return list of generated files
-export def generate-platform-data-for [version: string, project_name: string, artifacts_path: string = "./artifacts"] {
+export def generate-platform-data-for [version: string project_name: string artifacts_path: string = "./artifacts"] {
   let branch_name = $"release/($version)"
 
   print $"Checking out release branch: ($branch_name)"
@@ -144,22 +143,6 @@ export def setup-git-user [] {
   print "Setting up git user for GitHub Actions"
   ^git config --global user.name "github-actions[bot]"
   ^git config --global user.email "github-actions[bot]@users.noreply.github.com"
-}
-
-# Upload files to workflow run (accepts files via pipeline)
-export def upload-run-artifacts [] {
-  let files = $in
-  for $file in $files {
-    let filename = ($file | path basename)
-    print $"Uploading ($filename) to workflow run"
-    ^gh run upload $filename $file
-  }
-}
-
-# Download artifacts from workflow run by pattern
-export def download-run-artifacts [pattern: string = "*", download_path: string = "./artifacts"] {
-  print $"Downloading artifacts matching ($pattern) to ($download_path)"
-  ^gh run download --pattern $pattern --dir $download_path
 }
 
 # Merge release branch back to main and cleanup

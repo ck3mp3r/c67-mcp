@@ -27,8 +27,10 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v10
 
-      - name: Install Nushell
-        run: nix profile add nixpkgs#nushell
+      - name: Install Nushell and Cargo
+        run: |
+          nix profile add nixpkgs#nushell
+          nix profile add nixpkgs#cargo
 
       - name: Prepare release
         id: prep
@@ -70,21 +72,20 @@ jobs:
       - name: Build for ${{ matrix.nix_system }}
         run: nix build .#${{ matrix.nix_system }}
 
-      - name: Copy and upload build outputs
-        shell: nu {0}
+      - name: Copy build outputs for uniqueness
         run: |
-          source ${{ github.workspace }}/tools/release.nu
-          let version = "${{ needs.prep-release.outputs.version }}"
+          cp result/c67-mcp.tgz ${{ github.workspace }}/c67-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.tgz
+          cp result/c67-mcp.sha256 ${{ github.workspace }}/c67-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.sha256
+          cp result/c67-mcp-nix.sha256 ${{ github.workspace }}/c67-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}-nix.sha256
 
-          # Copy with version-specific names
-          cp result/c67-mcp.tgz $"c67-mcp-($version)-${{ matrix.nix_system }}.tgz"
-          cp result/c67-mcp.sha256 $"c67-mcp-($version)-${{ matrix.nix_system }}.sha256"
-          cp result/c67-mcp-nix.sha256 $"c67-mcp-($version)-${{ matrix.nix_system }}-nix.sha256"
-
-          # Upload files to workflow run
-          glob $"c67-mcp-($version)-${{ matrix.nix_system }}*" | upload-run-artifacts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload build outputs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: c67-mcp-assets-${{ matrix.nix_system }}
+          path: |
+            ${{ github.workspace }}/c67-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.tgz
+            ${{ github.workspace }}/c67-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}.sha256
+            ${{ github.workspace }}/c67-mcp-${{ needs.prep-release.outputs.version }}-${{ matrix.nix_system }}-nix.sha256
 
   finalize-release:
     needs:
@@ -104,16 +105,18 @@ jobs:
       - name: Install Nushell
         run: nix profile add nixpkgs#nushell
 
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
       - name: Finalize release
         shell: nu {0}
         run: |
-          use .github/scripts/release.nu
+          source ${{ github.workspace }}/tools/release.nu
           setup-git-user
 
           let version = "${{ needs.prep-release.outputs.version }}"
-
-          # Download artifacts from workflow run
-          download-run-artifacts $"c67-mcp-($version)-*"
 
           # Generate platform data and commit
           generate-platform-data-for $version "c67-mcp" "./artifacts" | commit-files $"Add platform data for release ($version)"
