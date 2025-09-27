@@ -73,18 +73,6 @@ export def commit-files [message: string] {
   ^git push origin HEAD
 }
 
-# Stage 1: Prep release (now chainable)
-export def prep-release [] {
-  print "=== Stage 1: Preparing Release ==="
-
-  let current_version = (open Cargo.toml).package.version
-  let latest_tag = get-latest-tag
-
-  calculate-semver $latest_tag $current_version
-  | create-release-branch
-  | update-cargo-toml
-  | commit-files "Prepare release VERSION"
-}
 
 # Generate per-arch data files
 export def generate-platform-data [
