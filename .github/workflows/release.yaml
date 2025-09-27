@@ -27,14 +27,14 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v10
 
-      - name: Install Nushell and Cargo
-        run: |
-          nix profile add nixpkgs#nushell
-          nix profile add nixpkgs#cargo
+      # - name: Install Nushell and Cargo
+      #   run: |
+      #     nix profile add nixpkgs#nushell
+      #     nix profile add nixpkgs#cargo
 
       - name: Prepare release
         id: prep
-        shell: nu {0}
+        shell: nix develop --command nu {0}
         run: |
           source ${{ github.workspace }}/tools/release.nu
           setup-git-user
