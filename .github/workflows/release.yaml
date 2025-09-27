@@ -25,7 +25,7 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Setup Nu Tools
-        uses: ck3mp3r/actions/nu-tools@a871ab2
+        uses: ck3mp3r/actions/nu-tools@a871ab26cc4f133ba196eb52cf269095b89232d3
 
       - name: Prepare release
         id: prep
@@ -99,7 +99,7 @@ jobs:
           token: ${{ steps.token.outputs.token }}
 
       - name: Setup Nu Tools
-        uses: ck3mp3r/actions/nu-tools@a871ab2
+        uses: ck3mp3r/actions/nu-tools@a871ab26cc4f133ba196eb52cf269095b89232d3
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
