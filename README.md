@@ -155,21 +155,6 @@ cargo test -- --nocapture
 cargo test --test integration_tests
 ```
 
-## Project Structure
-
-```
-├── src/
-│   ├── main.rs          # CLI interface and startup
-│   ├── handler.rs       # Core MCP server implementation
-│   └── lib.rs          # Library exports
-├── tests/
-│   ├── functional_tests.rs    # Basic functionality tests
-│   └── integration_tests.rs   # HTTP integration tests with mocks
-├── .github/workflows/  # CI/CD pipelines
-├── flake.nix          # Nix build configuration
-└── devshell.toml      # Development environment setup
-```
-
 ## Contributing
 
 1. Fork the repository
