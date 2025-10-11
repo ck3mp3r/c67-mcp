@@ -99,7 +99,7 @@
         "fenix": "fenix",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
-        "rustix": "rustix"
+        "rustnix": "rustnix"
       }
     },
     "rust-analyzer-src": {
@@ -119,7 +119,7 @@
         "type": "github"
       }
     },
-    "rustix": {
+    "rustnix": {
       "inputs": {
         "flake-utils": "flake-utils_2",
         "nixpkgs": [
@@ -127,16 +127,16 @@
         ]
       },
       "locked": {
-        "dir": "rustix",
-        "lastModified": 1758831791,
-        "narHash": "sha256-8D22KQUrp6S3psOINnNyi5h5k1wicaJwSHSEhMtxaTE=",
+        "dir": "rustnix",
+        "lastModified": 1760179728,
+        "narHash": "sha256-2x18c5a+jsiuLA0oDkkdvOBifa7z3fo4h17RjSR3dX8=",
         "owner": "ck3mp3r",
         "repo": "flakes",
-        "rev": "45dcfa341c0e126f4b5bec79cd69205e51228d21",
+        "rev": "56945a069f598865fa7137b06f627d15a27035c9",
         "type": "github"
       },
       "original": {
-        "dir": "rustix",
+        "dir": "rustnix",
         "owner": "ck3mp3r",
         "repo": "flakes",
         "type": "github"
