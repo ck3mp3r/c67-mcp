@@ -36,7 +36,10 @@ impl ServerHandler for Context7Tool {
             },
             server_info: Implementation {
                 name: "c67-mcp".to_string(),
+                title: None,
                 version: env!("CARGO_PKG_VERSION").to_string(),
+                icons: None,
+                website_url: None,
             },
             instructions: Some("Use this server to retrieve up-to-date documentation and code examples for any library.".to_string()),
         }
@@ -70,9 +73,12 @@ impl ServerHandler for Context7Tool {
 
         tools.push(Tool {
             name: "resolve-library-id".into(),
+            title: None,
             description: Some("Resolves a package/product name to a Context7-compatible library ID and returns a list of matching libraries.\n\nYou MUST call this function before 'get-library-docs' to obtain a valid Context7-compatible library ID UNLESS the user explicitly provides a library ID in the format '/org/project' or '/org/project/version' in their query.\n\nSelection Process:\n1. Analyze the query to understand what library/package the user is looking for\n2. Return the most relevant match based on:\n- Name similarity to the query (exact matches prioritized)\n- Description relevance to the query's intent\n- Documentation coverage (prioritize libraries with higher Code Snippet counts)\n- Trust score (consider libraries with scores of 7-10 more authoritative)\n\nResponse Format:\n- Return the selected library ID in a clearly marked section\n- Provide a brief explanation for why this library was chosen\n- If multiple good matches exist, acknowledge this but proceed with the most relevant one\n- If no good matches exist, clearly state this and suggest query refinements\n\nFor ambiguous queries, request clarification before proceeding with a best-guess match.".into()),
             input_schema: Arc::new(resolve_schema),
+            output_schema: None,
             annotations: None,
+            icons: None,
         });
 
         let mut docs_schema = Map::new();
@@ -112,9 +118,12 @@ impl ServerHandler for Context7Tool {
 
         tools.push(Tool {
             name: "get-library-docs".into(),
+            title: None,
             description: Some("Fetches up-to-date documentation for a library. You must call 'resolve-library-id' first to obtain the exact Context7-compatible library ID required to use this tool, UNLESS the user explicitly provides a library ID in the format '/org/project' or '/org/project/version' in their query.".into()),
             input_schema: Arc::new(docs_schema),
+            output_schema: None,
             annotations: None,
+            icons: None,
         });
 
         Ok(ListToolsResult {
