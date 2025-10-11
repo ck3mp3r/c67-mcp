@@ -103,7 +103,7 @@ impl Context7Client {
 
             let mut request = agent
                 .get(&url)
-                .query("tokens", &tokens.to_string())
+                .query("tokens", tokens.to_string())
                 .query("type", "txt");
 
             if let Some(topic) = topic {
