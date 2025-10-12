@@ -45,7 +45,7 @@
         };
 
         # Build regular packages (no archives)
-        regularPackages = inputs.rustnix.lib.rust.buildPackage {
+        regularPackages = inputs.rustnix.lib.rust.buildTargetOutputs {
           inherit
             cargoToml
             cargoLock
@@ -59,10 +59,11 @@
           src = ./.;
           packageName = "c67-mcp";
           archiveAndHash = false;
+          supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         };
 
         # Build archive packages (creates archive with system name)
-        archivePackages = inputs.rustnix.lib.rust.buildPackage {
+        archivePackages = inputs.rustnix.lib.rust.buildTargetOutputs {
           inherit
             cargoToml
             cargoLock
@@ -76,6 +77,7 @@
           src = ./.;
           packageName = "archive";
           archiveAndHash = true;
+          supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         };
       in {
         apps = {
