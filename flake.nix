@@ -2,12 +2,9 @@
   description = "Rust Context7 MCP Server with Devshell and Fenix";
 
   inputs = {
-    nixpkgs.url = "github:NixOs/nixpkgs/nixpkgs-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    devshell = {
-      url = "github:numtide/devshell";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixpkgs.url = "github:NixOs/nixpkgs";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    devshell.url = "github:numtide/devshell";
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -18,67 +15,97 @@
     };
   };
 
-  outputs = {
+  outputs = inputs @ {
     self,
-    nixpkgs,
-    rustnix,
-    flake-utils,
-    devshell,
-    fenix,
+    flake-parts,
     ...
-  }: let
-    overlays = [
-      fenix.overlays.default
-      devshell.overlays.default
-    ];
+  }:
+    flake-parts.lib.mkFlake {inherit inputs;} {
+      systems = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
+      perSystem = {
+        config,
+        system,
+        pkgs,
+        ...
+      }: let
+        overlays = [
+          inputs.fenix.overlays.default
+          inputs.devshell.overlays.default
+        ];
+        pkgs = import inputs.nixpkgs {inherit system overlays;};
 
-    systems = ["aarch64-darwin" "x86_64-linux" "aarch64-linux"];
-    dataDir = ./data;
-    installData = builtins.listToAttrs (map (system: {
-        name = system;
-        value = builtins.fromJSON (builtins.readFile (dataDir + "/${system}.json"));
-      })
-      systems);
-    cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-    cargoLock = {lockFile = ./Cargo.lock;};
-    src = ./.;
-  in
-    flake-utils.lib.eachSystem systems (system: let
-      pkgs = import nixpkgs {inherit system overlays;};
-    in {
-      devShells = {
-        ci = pkgs.devshell.mkShell {
-          packages = [fenix.packages.${system}.stable.toolchain pkgs.nushell];
+        cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+        cargoLock = {lockFile = ./Cargo.lock;};
+
+        # Install data for pre-built releases
+        installData = {
+          aarch64-darwin = builtins.fromJSON (builtins.readFile ./data/aarch64-darwin.json);
+          aarch64-linux = builtins.fromJSON (builtins.readFile ./data/aarch64-linux.json);
+          x86_64-linux = builtins.fromJSON (builtins.readFile ./data/x86_64-linux.json);
         };
-        default = pkgs.devshell.mkShell {
-          packages = [fenix.packages.${system}.stable.toolchain];
-          imports = [
-            (pkgs.devshell.importTOML ./devshell.toml)
-            "${devshell}/extra/git/hooks.nix"
-          ];
+
+        # Build regular packages (no archives)
+        regularPackages = inputs.rustnix.lib.rust.buildPackage {
+          inherit
+            cargoToml
+            cargoLock
+            overlays
+            pkgs
+            system
+            installData
+            ;
+          fenix = inputs.fenix;
+          nixpkgs = inputs.nixpkgs;
+          src = ./.;
+          packageName = "c67-mcp";
+          archiveAndHash = false;
         };
+
+        # Build archive packages (creates archive with system name)
+        archivePackages = inputs.rustnix.lib.rust.buildPackage {
+          inherit
+            cargoToml
+            cargoLock
+            overlays
+            pkgs
+            system
+            installData
+            ;
+          fenix = inputs.fenix;
+          nixpkgs = inputs.nixpkgs;
+          src = ./.;
+          packageName = "archive";
+          archiveAndHash = true;
+        };
+      in {
+        apps = {
+          default = {
+            type = "app";
+            program = "${config.packages.default}/bin/c67-mcp";
+          };
+        };
+
+        packages =
+          regularPackages
+          // archivePackages;
+
+        devShells = {
+          default = pkgs.devshell.mkShell {
+            packages = [inputs.fenix.packages.${system}.stable.toolchain];
+            imports = [
+              (pkgs.devshell.importTOML ./devshell.toml)
+              "${inputs.devshell}/extra/git/hooks.nix"
+            ];
+          };
+        };
+
+        formatter = pkgs.alejandra;
       };
-      formatter = pkgs.alejandra;
-      packages = rustnix.lib.rust.buildPackages {
-        inherit
-          cargoLock
-          cargoToml
-          fenix
-          installData
-          nixpkgs
-          overlays
-          pkgs
-          src
-          system
-          systems
-          ;
-        archiveAndHash = true;
-        packageName = "c67-mcp";
-      };
-    })
-    // {
-      overlays.default = final: prev: {
-        c67-mcp = self.packages.${final.system}.default;
+
+      flake = {
+        overlays.default = final: prev: {
+          c67-mcp = self.packages.default;
+        };
       };
     };
 }
