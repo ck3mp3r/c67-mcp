@@ -2,7 +2,11 @@ use anyhow::Result;
 use rmcp::{
     RoleServer, ServiceExt,
     handler::server::ServerHandler,
-    model::*,
+    model::{
+        CallToolRequestParam, CallToolResult, Content, ErrorData, Implementation, InitializeResult,
+        ListToolsResult, PaginatedRequestParam, ProtocolVersion, ServerCapabilities, Tool,
+        ToolsCapability,
+    },
     serde_json::{Map, Value},
     service::RequestContext,
     transport,
@@ -19,6 +23,7 @@ pub struct Context7Tool {
 }
 
 impl Context7Tool {
+    #[must_use]
     pub fn new(api_key: Option<String>, insecure: bool) -> Self {
         Self {
             client: Arc::new(Context7Client::new(api_key, insecure)),
@@ -153,21 +158,17 @@ impl ServerHandler for Context7Tool {
 
                 match self.client.search_libraries(library_name).await {
                     Ok(response) => {
-                        if let Some(error) = &response.error {
-                            Ok(CallToolResult::success(vec![Content::text(error)]))
-                        } else {
+                        response.error.as_ref().map_or_else(|| {
                             let results_text = format_search_results(&response);
                             let text = format!(
-                                "Available Libraries (top matches):\n\nEach result includes:\n- Library ID: Context7-compatible identifier (format: /org/project)\n- Name: Library or package name\n- Description: Short summary\n- Code Snippets: Number of available code examples\n- Trust Score: Authority indicator\n- Versions: List of versions if available. Use one of those versions if the user provides a version in their query. The format of the version is /org/project/version.\n\nFor best results, select libraries based on name match, trust score, snippet coverage, and relevance to your use case.\n\n----------\n\n{}",
-                                results_text
+                                "Available Libraries (top matches):\n\nEach result includes:\n- Library ID: Context7-compatible identifier (format: /org/project)\n- Name: Library or package name\n- Description: Short summary\n- Code Snippets: Number of available code examples\n- Trust Score: Authority indicator\n- Versions: List of versions if available. Use one of those versions if the user provides a version in their query. The format of the version is /org/project/version.\n\nFor best results, select libraries based on name match, trust score, snippet coverage, and relevance to your use case.\n\n----------\n\n{results_text}"
                             );
                             Ok(CallToolResult::success(vec![Content::text(text)]))
-                        }
+                        }, |error| Ok(CallToolResult::success(vec![Content::text(error)])))
                     }
                     Err(e) => {
                         let text = format!(
-                            "Failed to retrieve library documentation data from Context7: {}",
-                            e
+                            "Failed to retrieve library documentation data from Context7: {e}"
                         );
                         Ok(CallToolResult::success(vec![Content::text(text)]))
                     }
@@ -191,14 +192,14 @@ impl ServerHandler for Context7Tool {
                     .as_ref()
                     .and_then(|args| args.get("topic"))
                     .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
+                    .map(std::string::ToString::to_string);
 
                 let tokens = request
                     .arguments
                     .as_ref()
                     .and_then(|args| args.get("tokens"))
-                    .and_then(|v| v.as_u64())
-                    .map(|t| t as u32);
+                    .and_then(rmcp::serde_json::Value::as_u64)
+                    .and_then(|t| u32::try_from(t).ok());
 
                 match self
                     .client
@@ -213,7 +214,7 @@ impl ServerHandler for Context7Tool {
                         Ok(CallToolResult::success(vec![Content::text(text)]))
                     }
                     Err(e) => {
-                        let text = format!("Error fetching library documentation: {}", e);
+                        let text = format!("Error fetching library documentation: {e}");
                         Ok(CallToolResult::success(vec![Content::text(text)]))
                     }
                 }

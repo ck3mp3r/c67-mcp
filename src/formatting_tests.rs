@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{format_search_results, SearchResponse, SearchResult};
+    use crate::{SearchResponse, SearchResult, format_search_results};
 
     #[tokio::test]
     async fn test_search_response_formatting() {

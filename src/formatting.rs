@@ -1,5 +1,6 @@
 use crate::client::SearchResponse;
 
+#[must_use]
 pub fn format_search_results(response: &SearchResponse) -> String {
     if response.results.is_empty() {
         return "No documentation libraries found matching your query.".to_string();
@@ -18,13 +19,13 @@ pub fn format_search_results(response: &SearchResponse) -> String {
             if let Some(snippets) = result.total_snippets
                 && snippets != -1
             {
-                parts.push(format!("- Code Snippets: {}", snippets));
+                parts.push(format!("- Code Snippets: {snippets}"));
             }
 
             if let Some(trust_score) = result.trust_score
                 && trust_score >= 0.0
             {
-                parts.push(format!("- Trust Score: {:.1}", trust_score));
+                parts.push(format!("- Trust Score: {trust_score:.1}"));
             }
 
             if let Some(versions) = &result.versions
