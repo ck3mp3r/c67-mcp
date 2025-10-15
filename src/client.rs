@@ -1,5 +1,8 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use ureq::tls::{RootCerts, TlsConfig};
+use ureq::{Agent, Error};
 
 const CONTEXT7_API_BASE_URL: &str = "https://context7.com/api";
 const MINIMUM_TOKENS: u32 = 1000;
@@ -47,9 +50,21 @@ impl Context7Client {
 
         let api_key = self.api_key.clone();
         let query = query.to_string();
-        let _insecure = self.insecure;
+        let insecure = self.insecure;
         let result = tokio::task::spawn_blocking(move || {
-            let agent = ureq::agent();
+            let agent = if insecure {
+                // Create agent with empty certificate store to bypass verification (insecure mode)
+                let tls_config = TlsConfig::builder()
+                    .root_certs(RootCerts::Specific(Arc::new(vec![])))
+                    .build();
+
+                Agent::config_builder()
+                    .tls_config(tls_config)
+                    .build()
+                    .new_agent()
+            } else {
+                ureq::agent()
+            };
 
             let mut request = agent.get(&url).query("query", &query);
 
@@ -66,13 +81,13 @@ impl Context7Client {
                 let search_response: SearchResponse = response.body_mut().read_json()?;
                 Ok(search_response)
             }
-            Err(ureq::Error::StatusCode(429)) => Ok(SearchResponse {
+            Err(Error::StatusCode(429)) => Ok(SearchResponse {
                 results: vec![],
                 error: Some(
                     "Rate limited due to too many requests. Please try again later.".to_string(),
                 ),
             }),
-            Err(ureq::Error::StatusCode(401)) => Ok(SearchResponse {
+            Err(Error::StatusCode(401)) => Ok(SearchResponse {
                 results: vec![],
                 error: Some("Unauthorized. Please check your API key.".to_string()),
             }),
@@ -96,10 +111,22 @@ impl Context7Client {
 
         let api_key = self.api_key.clone();
         let topic = topic.map(|s| s.to_string());
-        let _insecure = self.insecure;
+        let insecure = self.insecure;
 
         let result = tokio::task::spawn_blocking(move || {
-            let agent = ureq::agent();
+            let agent = if insecure {
+                // Create agent with empty certificate store to bypass verification (insecure mode)
+                let tls_config = TlsConfig::builder()
+                    .root_certs(RootCerts::Specific(Arc::new(vec![])))
+                    .build();
+
+                Agent::config_builder()
+                    .tls_config(tls_config)
+                    .build()
+                    .new_agent()
+            } else {
+                ureq::agent()
+            };
 
             let mut request = agent
                 .get(&url)
@@ -129,13 +156,13 @@ impl Context7Client {
                     Ok(Some(text))
                 }
             }
-            Err(ureq::Error::StatusCode(429)) => {
+            Err(Error::StatusCode(429)) => {
                 Ok(Some("Rate limited due to too many requests. Please try again later.".to_string()))
             }
-            Err(ureq::Error::StatusCode(404)) => {
+            Err(Error::StatusCode(404)) => {
                 Ok(Some("The library you are trying to access does not exist. Please try with a different library ID.".to_string()))
             }
-            Err(ureq::Error::StatusCode(401)) => {
+            Err(Error::StatusCode(401)) => {
                 Ok(Some("Unauthorized. Please check your API key.".to_string()))
             }
             Err(e) => {
