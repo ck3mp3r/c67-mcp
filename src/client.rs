@@ -1,6 +1,5 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use ureq::tls::{RootCerts, TlsConfig};
 use ureq::{Agent, Error};
 
@@ -55,9 +54,10 @@ impl Context7Client {
         let insecure = self.insecure;
         let result = tokio::task::spawn_blocking(move || {
             let agent = if insecure {
-                // Create agent with empty certificate store to bypass verification (insecure mode)
+                // Create agent that disables certificate verification for corporate MITM environments
                 let tls_config = TlsConfig::builder()
-                    .root_certs(RootCerts::Specific(Arc::new(vec![])))
+                    .root_certs(RootCerts::PlatformVerifier) // Use platform's root certs (including corporate)
+                    .disable_verification(true)              // Disable all TLS verification (insecure)
                     .build();
 
                 Agent::config_builder()
@@ -117,9 +117,10 @@ impl Context7Client {
 
         let result = tokio::task::spawn_blocking(move || {
             let agent = if insecure {
-                // Create agent with empty certificate store to bypass verification (insecure mode)
+                // Create agent that disables certificate verification for corporate MITM environments
                 let tls_config = TlsConfig::builder()
-                    .root_certs(RootCerts::Specific(Arc::new(vec![])))
+                    .root_certs(RootCerts::PlatformVerifier) // Use platform's root certs (including corporate)
+                    .disable_verification(true)              // Disable all TLS verification (insecure)
                     .build();
 
                 Agent::config_builder()
