@@ -33,10 +33,12 @@ pub struct Context7Client {
 }
 
 impl Context7Client {
+    #[must_use]
     pub fn new(api_key: Option<String>, insecure: bool) -> Self {
         Self::new_with_base_url(api_key, CONTEXT7_API_BASE_URL.to_string(), insecure)
     }
 
+    #[must_use]
     pub fn new_with_base_url(api_key: Option<String>, base_url: String, insecure: bool) -> Self {
         Self {
             api_key,
@@ -69,7 +71,7 @@ impl Context7Client {
             let mut request = agent.get(&url).query("query", &query);
 
             if let Some(api_key) = api_key {
-                request = request.header("Authorization", &format!("Bearer {}", api_key));
+                request = request.header("Authorization", &format!("Bearer {api_key}"));
             }
 
             request.call()
@@ -93,7 +95,7 @@ impl Context7Client {
             }),
             Err(e) => Ok(SearchResponse {
                 results: vec![],
-                error: Some(format!("Failed to search libraries: {}", e)),
+                error: Some(format!("Failed to search libraries: {e}")),
             }),
         }
     }
@@ -110,7 +112,7 @@ impl Context7Client {
         let tokens = tokens.unwrap_or(DEFAULT_TOKENS).max(MINIMUM_TOKENS);
 
         let api_key = self.api_key.clone();
-        let topic = topic.map(|s| s.to_string());
+        let topic = topic.map(std::string::ToString::to_string);
         let insecure = self.insecure;
 
         let result = tokio::task::spawn_blocking(move || {
@@ -138,7 +140,7 @@ impl Context7Client {
             }
 
             if let Some(api_key) = api_key {
-                request = request.header("Authorization", &format!("Bearer {}", api_key));
+                request = request.header("Authorization", &format!("Bearer {api_key}"));
             }
 
             request = request.header("X-Context7-Source", "mcp-server");
@@ -166,7 +168,7 @@ impl Context7Client {
                 Ok(Some("Unauthorized. Please check your API key.".to_string()))
             }
             Err(e) => {
-                Ok(Some(format!("Failed to fetch documentation: {}", e)))
+                Ok(Some(format!("Failed to fetch documentation: {e}")))
             }
         }
     }
