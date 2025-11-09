@@ -37,6 +37,16 @@ nix build github:ck3mp3r/c67-mcp
 nix profile install github:ck3mp3r/c67-mcp
 ```
 
+### Using Homebrew
+
+```bash
+# Tap the repository
+brew tap ck3mp3r/c67-mcp https://github.com/ck3mp3r/c67-mcp
+
+# Install c67-mcp
+brew install c67-mcp
+```
+
 ### From Source
 
 ```bash
