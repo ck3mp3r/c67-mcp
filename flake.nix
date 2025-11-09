@@ -1,10 +1,16 @@
 {
-  description = "Rust Context7 MCP Server with Devshell and Fenix";
+  description = "Rust Context7 MCP Server with Devenv and Fenix";
 
   inputs = {
-    nixpkgs.url = "github:NixOs/nixpkgs";
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    devshell.url = "github:numtide/devshell";
+    nixpkgs.url = "github:NixOs/nixpkgs/nixpkgs-unstable";
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
+    };
+    devenv = {
+      url = "github:cachix/devenv";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -12,6 +18,7 @@
     rustnix = {
       url = "github:ck3mp3r/flakes?dir=rustnix";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.fenix.follows = "fenix";
     };
   };
 
@@ -25,12 +32,11 @@
       perSystem = {
         config,
         system,
-        pkgs,
         ...
       }: let
+        supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         overlays = [
           inputs.fenix.overlays.default
-          inputs.devshell.overlays.default
         ];
         pkgs = import inputs.nixpkgs {inherit system overlays;};
 
@@ -53,13 +59,13 @@
             pkgs
             system
             installData
+            supportedTargets
             ;
           fenix = inputs.fenix;
           nixpkgs = inputs.nixpkgs;
           src = ./.;
           packageName = "c67-mcp";
           archiveAndHash = false;
-          supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         };
 
         # Build archive packages (creates archive with system name)
@@ -71,13 +77,13 @@
             pkgs
             system
             installData
+            supportedTargets
             ;
           fenix = inputs.fenix;
           nixpkgs = inputs.nixpkgs;
           src = ./.;
           packageName = "archive";
           archiveAndHash = true;
-          supportedTargets = ["aarch64-darwin" "aarch64-linux" "x86_64-linux"];
         };
       in {
         apps = {
@@ -92,11 +98,10 @@
           // archivePackages;
 
         devShells = {
-          default = pkgs.devshell.mkShell {
-            packages = [inputs.fenix.packages.${system}.stable.toolchain];
-            imports = [
-              (pkgs.devshell.importTOML ./devshell.toml)
-              "${inputs.devshell}/extra/git/hooks.nix"
+          default = inputs.devenv.lib.mkShell {
+            inherit inputs pkgs;
+            modules = [
+              ./devenv.nix
             ];
           };
         };
