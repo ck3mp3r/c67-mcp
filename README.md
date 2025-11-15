@@ -1,5 +1,7 @@
 # c67-mcp
 
+> **⚠️ DISCONTINUED**: This standalone project has been discontinued and integrated into the [nu-mcp monorepo](https://github.com/ck3mp3r/nu-mcp/tree/main/tools/c67) as the `c67` tool. The new implementation offers the same Context7 MCP functionality with better maintenance and integration with other MCP tools. Please migrate to [nu-mcp/tools/c67](https://github.com/ck3mp3r/nu-mcp/tree/main/tools/c67) for ongoing support and updates.
+
 A Rust implementation of a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for [Context7](https://context7.com/) - providing AI assistants with access to up-to-date documentation for any library or framework.
 
 ## Overview
